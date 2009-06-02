@@ -97,6 +97,8 @@ class Chef
               else
                 opts << " -m -d #{@new_resource.home}"
               end
+            else
+              raise Chef::Exceptions::User, "Asked to change home directory for #{@new_resource.username} to #{@new_resource.home} but :manage_home is false!"
             end
           end
           opts << " #{@new_resource.username}"
