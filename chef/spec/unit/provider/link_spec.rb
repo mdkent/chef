@@ -59,13 +59,13 @@ describe Chef::Provider::Link, "load_current_resource" do
     File.stub!(:readlink).and_return("")
   end
 
-  it "should set the symink target" do
+  it "should set the symlink target" do
     @current_resource.should_receive(:target_file).with("/tmp/fofile-link").and_return(true)
     @provider.load_current_resource
   end
   
   it "should set the link type" do
-    @current_resource.should_recieve(:link_type).with(:symbolic).and_return(true)
+    @current_resource.should_receive(:link_type).with(:symbolic).and_return(true)
     @provider.load_current_resource
   end
   
@@ -80,11 +80,10 @@ describe Chef::Provider::Link, "load_current_resource" do
         File.stub!(:exists?).with("/tmp/fofile-link").and_return(true)
         File.stub!(:symlink?).with("/tmp/fofile-link").and_return(true)
         File.stub!(:readlink).with("/tmp/fofile-link").and_return("/tmp/fofile")
-        @current_resource.stub!(:target_file).and_return("/tmp/fofile")
       end
       
       it "should update the source of the existing link with the links target" do
-        @current_resource.should_recieve(:to).with("/tmp/fofile").and_return(true)
+        @current_resource.should_receive(:to).with("/tmp/fofile").and_return(true)
         @provider.load_current_resource
       end    
     end
@@ -149,7 +148,7 @@ describe Chef::Provider::Link, "load_current_resource" do
         end
         
         it "should set the source of the existing link to an empty string" do
-          @current_resource.should_recieve(:to).with("").and_return(true)
+          @current_resource.should_receive(:to).with("").and_return(true)
           @provider.load_current_resource
         end
       end
