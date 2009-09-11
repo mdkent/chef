@@ -1,6 +1,18 @@
 gems = %w[chef chef-server-slice chef-server]
 require 'rubygems'
 require 'cucumber/rake/task'
+require 'rake/gempackagetask'
+
+NAME = "chef"
+CHEF_VERSION = "0.7.11"
+FILES = %w(CHANGELOG cucumber.yml LICENSE NOTICE Rakefile README.rdoc) +
+        Dir.glob("{chef,chef-{server,server-slice},distro,features}/**/*")
+
+Rake::PackageTask.new(NAME, CHEF_VERSION) do |pkg|
+  pkg.need_tar_gz = true
+  pkg.need_tar_bz2 = true
+  pkg.package_files = FILES
+end
 
 desc "Build the chef gems"
 task :gem do
