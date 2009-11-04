@@ -19,7 +19,12 @@
 $:.unshift(File.dirname(__FILE__)) unless
   $:.include?(File.dirname(__FILE__)) || $:.include?(File.expand_path(File.dirname(__FILE__)))
 
-require 'rubygems'
+begin
+  require 'rubygems'
+rescue LoadError
+  # Do nothing, could be a Debian install. User can diagnose and fix subsequent
+  # LoadError.
+end
 require 'extlib'
 require 'chef/exceptions'
 require 'chef/log'

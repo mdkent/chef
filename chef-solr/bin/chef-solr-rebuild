@@ -20,7 +20,6 @@
 $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", "lib")))
 $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "chef", "lib")))
 
-require 'rubygems'
 require 'chef/solr/application/rebuild'
 
 Chef::Solr::Application::Rebuild.new.run

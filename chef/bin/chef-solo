@@ -20,7 +20,6 @@
 
 $:.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
 
-require 'rubygems'
 require 'chef/application/solo'
 
 Chef::Application::Solo.new.run

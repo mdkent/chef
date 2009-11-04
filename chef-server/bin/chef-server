@@ -23,14 +23,13 @@
 # Add chef and chef-server-slice lib dirs to the load path
 # Load chef and chef-server slice from source rather than gem, if present
 
-require "rubygems"
-require "merb-core"
-
 [ 'chef', 'chef-server-api' ].each do |lib|
   $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "lib")))
   library = File.join(File.dirname(__FILE__), "..", "..", lib, "lib", "#{lib}.rb")
   require library if File.exists?(library)
 end
+
+require "merb-core"
 
 ObjectSpace.each_object(Gem::Specification) do |gem|
   next unless gem.name == "chef-server"

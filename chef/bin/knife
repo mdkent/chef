@@ -2,9 +2,8 @@
 
 $:.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
 
-require 'rubygems'
-require 'thor'
 require 'chef'
+require 'thor'
 require 'chef/node'
 require 'chef/role'
 require 'chef/data_bag'
