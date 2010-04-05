@@ -118,11 +118,11 @@ class Chef
         end
 
         def setup_application
-          Chef::Daemon.change_privilege
-
           # Build up a client
           c = Chef::Client.new
           c.build_node(nil, true)
+
+          Chef::Daemon.change_privilege
 
           solr_base = File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "..", "..", "solr"))
 
