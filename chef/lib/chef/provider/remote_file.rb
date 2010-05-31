@@ -29,6 +29,11 @@ class Chef
 
       include Chef::Mixin::FindPreferredFile
 
+      def load_current_resource
+        super
+        @current_resource.checksum(checksum(@current_resource.path))
+      end
+
       def action_create
         Chef::Log.debug("Checking #{@new_resource} for changes")
         do_remote_file(@new_resource.source, @current_resource.path)

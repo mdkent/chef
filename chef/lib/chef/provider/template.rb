@@ -34,6 +34,11 @@ class Chef
       include Chef::Mixin::Template
       include Chef::Mixin::FindPreferredFile
 
+      def load_current_resource
+        super
+        @current_resource.checksum(checksum(@current_resource.path))
+      end
+
       def action_create
         raw_template_file = nil
 
