@@ -68,7 +68,7 @@ class Chef
 
                 @data[name] = Hash.new unless @data.has_key?(name)
                 @data[name][type_sym] = Hash.new unless @data[name].has_key?(type_sym)
-                
+
                 # if we have this type, arch, and version only overwrite if its newer 
                 if @data.key?(name) and
                    @data[name].key?(type_sym) and
@@ -78,7 +78,7 @@ class Chef
                    ( @data[name][type_sym][arch][:version] == version and
                      @data[name][type_sym][arch][:release] < release )
               
-                    # new entry is same version but greater revision store it
+                    # entry is newer - store it
                     @data[name][type_sym][arch] = { :epoch => epoch, :version => version, :release => release }
                   end
                 else
@@ -106,8 +106,12 @@ class Chef
                     return "#{z[:version]}-#{z[:release]}"
                   end
                 else
-                  # no arch specified - take the first match
-                  z = y.to_a[0][1]
+                  # no arch specified
+                  # 
+                  # yum will output a different arch with an older version as
+                  # an available package, we'll sort the available ones to get
+                  # the newest version, mirroring the default yum action
+                  z = y.sort {|a,b| "#{b[1][:version]}-#{b[1][:release]}" <=> "#{a[1][:version]}-#{a[1][:release]}" }[0][1]
                   return "#{z[:version]}-#{z[:release]}"
                 end
               end
