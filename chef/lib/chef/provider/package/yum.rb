@@ -65,14 +65,26 @@ class Chef
                 line.chomp!
                 name, type, epoch, version, release, arch = line.split(',')
                 type_sym = type.to_sym
-                if !@data.has_key?(name)
-                  @data[name] = Hash.new
+
+                @data[name] = Hash.new unless @data.has_key?(name)
+                @data[name][type_sym] = Hash.new unless @data[name].has_key?(type_sym)
+                
+                # if we have this type, arch, and version only overwrite if its newer 
+                if @data.key?(name) and
+                   @data[name].key?(type_sym) and
+                   @data[name][type_sym].key?(arch) 
+
+                  if @data[name][type_sym][arch][:version] <= version or
+                   ( @data[name][type_sym][arch][:version] == version and
+                     @data[name][type_sym][arch][:release] < release )
+              
+                    # new entry is same version but greater revision store it
+                    @data[name][type_sym][arch] = { :epoch => epoch, :version => version, :release => release }
+                  end
+                else
+                  # we havent seen this thing so store it 
+                  @data[name][type_sym][arch] = { :epoch => epoch, :version => version, :release => release }
                 end
-                if !@data[name].has_key?(type_sym)
-                  @data[name][type_sym] = Hash.new
-                end
-                @data[name][type_sym][arch] = { :epoch => epoch, :version => version,
-                                                :release => release }
               end
               
               error = stderr.readlines
@@ -162,12 +174,16 @@ class Chef
           installed_version = @yum.installed_version(@new_resource.package_name, arch)
           @candidate_version = @yum.candidate_version(@new_resource.package_name, arch)
 
+          # only push out a canidate if its a viable upgrade or install
           @current_resource.version(installed_version)
-          if candidate_version
+          if (candidate_version and installed_version) and (candidate_version > installed_version)
+            @candidate_version = candidate_version
+          elsif !installed_version and candidate_version
             @candidate_version = candidate_version
           else
             @candidate_version = installed_version
           end
+          
 
           @current_resource
         end
