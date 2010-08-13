@@ -74,10 +74,7 @@ class Chef
                    @data[name].key?(type_sym) and
                    @data[name][type_sym].key?(arch) 
 
-                  if @data[name][type_sym][arch][:version] <= version or
-                   ( @data[name][type_sym][arch][:version] == version and
-                     @data[name][type_sym][arch][:release] < release )
-              
+                  if version(name, type_sym, arch) < "#{version}-#{release}"
                     # entry is newer - store it
                     @data[name][type_sym][arch] = { :epoch => epoch, :version => version, :release => release }
                   end
