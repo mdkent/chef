@@ -60,7 +60,7 @@ class Chef
             error = String.new
 
             helper = ::File.join(::File.dirname(__FILE__), 'yum-dump.py')
-            status = popen4("python #{helper}", :waitlast => true) do |pid, stdin, stdout, stderr|
+            status = popen4("/usr/bin/python #{helper}", :waitlast => true) do |pid, stdin, stdout, stderr|
               stdout.each do |line|
                 line.chomp!
                 name, type, epoch, version, release, arch = line.split(',')
