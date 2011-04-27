@@ -63,7 +63,7 @@ class Chef
             status = popen4("python #{helper}", :waitlast => true) do |pid, stdin, stdout, stderr|
               stdout.each do |line|
                 line.chomp!
-                name, type, epoch, version, release, arch = line.split(',')
+                name, type, epoch, version, release, arch = line.split
                 type_sym = type.to_sym
                 if !@data.has_key?(name)
                   @data[name] = Hash.new
