@@ -171,21 +171,14 @@ module Chef
 
         configurable :log_level, :info
 
-        # override the setter for log_level to also actually set the level
         def log_level=(level)
-          if level #don't accept nil for an answer
-            level = level.to_sym
-            Loggable::LOGGER.level = level
-            @log_level = log_level
-          end
-          level
+          @log_level = level.to_sym unless level.nil?
         end
 
         configurable :log_location, STDOUT
 
-        # override the setter for log_location to re-init the logger
         def log_location=(location)
-          Loggable::LOGGER.init(location) unless location.nil?
+          @log_location = location unless location.nil?
         end
 
         def initialize

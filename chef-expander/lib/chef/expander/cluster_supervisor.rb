@@ -61,6 +61,7 @@ module Chef
         trap(:INT)  { stop(:INT) }
         trap(:TERM) { stop(:TERM)}
         Expander.init_config(ARGV)
+        configure_logging
 
         log.info("Chef Expander #{Expander.version} starting cluster with #{Expander.config.node_count} nodes")
         configure_process
@@ -120,6 +121,12 @@ module Chef
           Process.waitpid2(pid)
         end
 
+      end
+
+      # TODO: Multiple logging to file and stdout like chef-client
+      def configure_logging
+        Loggable::LOGGER.init(Expander.config.log_location)
+        Loggable::LOGGER.level = Expander.config.log_level
       end
 
     end
