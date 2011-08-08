@@ -106,12 +106,12 @@ describe Expander::Configuration do
 
   it "sets the log location to an IO object" do
     @config.log_location = STDERR
-    @config.log.log_device.should == STDERR
+    @config.log_location.should == STDERR
   end
 
   it "sets the log location to a File" do
     @config.log_location = File.join(FIXTURE_PATH, 'expander.log')
-    @config.log.log_device.path.should == File.join(FIXTURE_PATH, 'expander.log')
+    @config.log_location.should == File.join(FIXTURE_PATH, 'expander.log')
   end
 
   it "generates an AMQP configuration hash suitable for passing to Bunny.new or AMQP.start" do
