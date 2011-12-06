@@ -22,21 +22,49 @@ class Chef
     # == Chef::Mixin::DeepMerge
     # Implements a deep merging algorithm for nested data structures.
     # ==== Notice:
-    #   This code is imported from deep_merge by Steve Midgley. deep_merge is
-    #   available under the MIT license from
+    #   This code was originally imported from deep_merge by Steve Midgley. 
+    #   deep_merge is available under the MIT license from
     #   http://trac.misuse.org/science/wiki/DeepMerge
     module DeepMerge
-      def self.merge(first, second)
-        first  = Mash.new(first)  unless first.kind_of?(Mash)
+      extend self
+
+      OLD_KNOCKOUT = [ "!merge" ]
+
+      FILE_ATTRIBUTE_KNOCKOUT = [ "!a-merge", "!a-m" ]
+      ENVIRONMENT_ATTRIBUTE_KNOCKOUT = [ "!e-merge", "!e-m" ]
+      ROLE_ATTRIBUTE_KNOCKOUT = OLD_KNOCKOUT + [ "!r-merge", "!r-m" ]
+
+      # Standard merge
+      def merge(dest, source)
+        do_merge(source, dest, OLD_KNOCKOUT)
+      end
+
+      # We use different knockout_prefixes for each level of precedence when
+      # arrays are merged together. This allows for things like excluding a 
+      # default attribute from a file via an enviromment, or excluding an
+      # override attribute from an environment in a role.
+
+      def merge_for_file_attrs(dest,source)
+        do_merge(source, dest, FILE_ATTRIBUTE_KNOCKOUT)
+      end
+
+      def merge_for_env_attrs(dest,source)
+        do_merge(source, dest, ENVIRONMENT_ATTRIBUTE_KNOCKOUT)
+      end
+
+      def merge_for_role_attrs(dest,source)
+        do_merge(source, dest, ROLE_ATTRIBUTE_KNOCKOUT)
+      end
+
+      def do_merge(source, dest, knockout_prefixes)
+        first  = Mash.new(first)  unless first.kind_of?(Mash)                  
         second = Mash.new(second) unless second.kind_of?(Mash)
 
-        DeepMerge.deep_merge!(second, first, {:knockout_prefix => "!merge:", :preserve_unmergeables => false})
+        DeepMerge.deep_merge(source, dest, {:knockout_prefixes => knockout_prefixes, :preserve_unmergeables => false})
       end
-    
+
       class InvalidParameter < StandardError; end
-      
-      DEFAULT_FIELD_KNOCKOUT_PREFIX = '--' unless defined?(DEFAULT_FIELD_KNOCKOUT_PREFIX)
-     
+
       # Deep Merge core documentation.
       # deep_merge! method permits merging of arbitrary child elements. The two top level
       # elements must be hashes. These hashes can contain unlimited (to stack limit) levels
@@ -54,11 +82,13 @@ class Chef
       # 
       # Options:
       #   Options are specified in the last parameter passed, which should be in hash format:
-      #   hash.deep_merge!({:x => [1,2]}, {:knockout_prefix => '--'})
+      #   hash.deep_merge!({:x => [1,2]}, {:knockout_prefix => ['!merge']})
       #   :preserve_unmergeables  DEFAULT: false
       #      Set to true to skip any unmergeable elements from source
-      #   :knockout_prefix        DEFAULT: nil
-      #      Set to string value to signify prefix which deletes elements from existing element
+      #   :knockout_prefix        DEFAULT: []
+      #      Set to an array of string values to signify prefixes which delete elements from existing elements
+      #      A colon is appended when indicating a specific value, eg:
+      #      :knockout_prefix => "dontmerge", is referenced as "dontmerge:foobar" in an array
       #   :sort_merged_arrays     DEFAULT: false
       #      Set to true to sort all arrays that are merged together
       #   :unpack_arrays          DEFAULT: nil
@@ -67,15 +97,15 @@ class Chef
       #      Set to true to get console output of merge process for debugging
       #
       # Selected Options Details:
-      # :knockout_prefix => The purpose of this is to provide a way to remove elements 
+      # :knockout_prefixes => The purpose of this is to provide a way to remove elements 
       #   from existing Hash by specifying them in a special way in incoming hash
-      #    source = {:x => ['--1', '2']}
+      #    source = {:x => ['!merge:1', '2']}
       #    dest   = {:x => ['1', '3']}
       #    dest.ko_deep_merge!(source)
       #    Results: {:x => ['2','3']}
-      #   Additionally, if the knockout_prefix is passed alone as a string, it will cause
+      #   Additionally, if the knockout_prefixes is passed alone as a string, it will cause
       #   the entire element to be removed:
-      #    source = {:x => '--'}
+      #    source = {:x => '!merge'}
       #    dest   = {:x => [1,2,3]}
       #    dest.ko_deep_merge!(source)
       #    Results: {:x => ""}
@@ -90,13 +120,18 @@ class Chef
       # 
       # There are many tests for this library - and you can learn more about the features
       # and usages of deep_merge! by just browsing the test examples
-      def self.deep_merge!(source, dest, options = {})
+      def deep_merge!(source, dest, options = {})
         # turn on this line for stdout debugging text
         merge_debug = options[:merge_debug] || false
         overwrite_unmergeable = !options[:preserve_unmergeables]
-        knockout_prefix = options[:knockout_prefix] || nil
-        raise InvalidParameter, "knockout_prefix cannot be an empty string in deep_merge!" if knockout_prefix == ""
-        raise InvalidParameter, "overwrite_unmergeable must be true if knockout_prefix is specified in deep_merge!" if knockout_prefix && !overwrite_unmergeable
+        knockout_prefixes = options[:knockout_prefixes] || []
+        # backwards compat
+        if options[:knockout_prefix]
+          knockout_prefixes << options[:knockout_prefix]
+        end
+        knockout_prefixes_by_value = knockout_prefixes.map {|ko| "#{ko}:"}
+        raise InvalidParameter, "knockout_prefixes cannot include an empty string in deep_merge!" if knockout_prefixes.include?("")
+        raise InvalidParameter, "overwrite_unmergeable must be true if knockout_prefixes are specified in deep_merge!" if knockout_prefixes.size > 0 && !overwrite_unmergeable
         # if present: we will split and join arrays on this char before merging
         array_split_char = options[:unpack_arrays] || false
         # request that we sort together any arrays when they are merged
@@ -108,7 +143,7 @@ class Chef
         if dest.nil? && overwrite_unmergeable
           dest = source; return dest
         end
-     
+
         puts "#{di}Source class: #{source.class.inspect} :: Dest class: #{dest.class.inspect}" if merge_debug
         if source.kind_of?(Hash)
           puts "#{di}Hashes: #{source.inspect} :: #{dest.inspect}" if merge_debug
@@ -145,17 +180,21 @@ class Chef
               dest = dest.join(array_split_char).split(array_split_char)
             end
           end
-          # if there's a naked knockout_prefix in source, that means we are to truncate dest
-          if source.index(knockout_prefix)
-            dest = clear_or_nil(dest); source.delete(knockout_prefix)
+          all_prefixes = knockout_prefixes + knockout_prefixes_by_value
+          all_prefixes.each do |ko|
+            # if there's a naked knockout_prefix in source, that means we are to truncate dest
+            if source.index(ko)
+              dest = clear_or_nil(dest)
+              source.delete(ko)
+            end
           end
           if dest.kind_of?(Array)
-            if knockout_prefix
+            knockout_prefixes_by_value.each do |ko|
               print "#{di} knocking out: " if merge_debug
               # remove knockout prefix items from both source and dest
               source.delete_if do |ko_item|
                 retval = false
-                item = ko_item.respond_to?(:gsub) ? ko_item.gsub(%r{^#{knockout_prefix}}, "") : ko_item
+                item = ko_item.respond_to?(:gsub) ? ko_item.gsub(%r{^#{ko}}, "") : ko_item
                 if item != ko_item
                   print "#{ko_item} - " if merge_debug
                   dest.delete(item)
@@ -180,35 +219,52 @@ class Chef
         puts "#{di}Returning #{dest.inspect}" if merge_debug
         dest
       end # deep_merge!
-     
+
       # allows deep_merge! to uniformly handle overwriting of unmergeable entities
-      def self.overwrite_unmergeables(source, dest, options)
+      def overwrite_unmergeables(source, dest, options)
         merge_debug = options[:merge_debug] || false
         overwrite_unmergeable = !options[:preserve_unmergeables]
-        knockout_prefix = options[:knockout_prefix] || false
+        knockout_prefixes = options[:knockout_prefixes] || []
+        # backwards compat
+        if options[:knockout_prefix]
+          knockout_prefixes << options[:knockout_prefix] 
+        end  
+
         di = options[:debug_indent] || ''
-        if knockout_prefix && overwrite_unmergeable
-          if source.kind_of?(String) # remove knockout string from source before overwriting dest
-            src_tmp = source.gsub(%r{^#{knockout_prefix}},"")
-          elsif source.kind_of?(Array) # remove all knockout elements before overwriting dest
-            src_tmp = source.delete_if {|ko_item| ko_item.kind_of?(String) && ko_item.match(%r{^#{knockout_prefix}}) }
-          else
-            src_tmp = source
-          end
-          if src_tmp == source # if we didn't find a knockout_prefix then we just overwrite dest
-            puts "#{di}#{src_tmp.inspect} -over-> #{dest.inspect}" if merge_debug
-            dest = src_tmp
-          else # if we do find a knockout_prefix, then we just delete dest
-            puts "#{di}\"\" -over-> #{dest.inspect}" if merge_debug
-            dest = ""
+        if knockout_prefixes.size > 0 && overwrite_unmergeable
+          knockout_prefixes.each do |ko|
+            if source.kind_of?(String) # remove knockout string from source before overwriting dest
+              if source == ko 
+                src_tmp = ""
+              else
+                src_tmp = source.gsub(%r{^#{ko}:},"")
+              end
+            elsif source.kind_of?(Array) # remove all knockout elements before overwriting dest
+              src_tmp = source.delete_if {|ko_item| ko_item.kind_of?(String) && ko_item.match(%r{^#{ko}:}) }
+            else
+              src_tmp = source
+            end
+            if src_tmp == source # if we didn't find a knockout_prefix then we just overwrite dest
+              puts "#{di}#{src_tmp.inspect} -over-> #{dest.inspect}" if merge_debug
+              dest = src_tmp
+              break
+            else # if we do find a knockout_prefix, then we just delete dest
+              puts "#{di}\"\" -over-> #{dest.inspect}" if merge_debug
+              dest = ""
+              break
+            end
           end
         elsif overwrite_unmergeable
           dest = source
         end
         dest
       end
-     
-      def self.clear_or_nil(obj)
+
+      def deep_merge(source, dest, options = {})
+        deep_merge!(source.dup, dest.dup, options)
+      end
+
+      def clear_or_nil(obj)
         if obj.respond_to?(:clear)
           obj.clear
         else
@@ -216,10 +272,8 @@ class Chef
         end
         obj
       end
-     
+
     end
-     
+
   end
 end
-
-

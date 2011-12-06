@@ -449,12 +449,19 @@ class Chef
     # passed in, which came from roles.
     def apply_expansion_attributes(expansion)
       load_chef_environment_object = (chef_environment == "_default" ? nil : Chef::Environment.load(chef_environment))
+
       environment_default_attrs = load_chef_environment_object.nil? ? {} : load_chef_environment_object.default_attributes
-      default_before_roles = Chef::Mixin::DeepMerge.merge(default_attrs, environment_default_attrs)
-      @default_attrs = Chef::Mixin::DeepMerge.merge(default_before_roles, expansion.default_attrs)
+      # Following attribute precendence:
+      #
+      # Merge expanded roles into env - knockout unwanted env attribs from merged arrays
+      merged_roles_and_env_defaults = Chef::Mixin::DeepMerge.merge_for_env_attrs(environment_default_attrs, expansion.default_attrs)
+      # Merge expanded roles+env into file attribs - knock unwanted file attribs from merged arrays
+      @default_attrs = Chef::Mixin::DeepMerge.merge_for_file_attrs(default_attrs, merged_roles_and_env_defaults)
+
       environment_override_attrs = load_chef_environment_object.nil? ? {} : load_chef_environment_object.override_attributes
-      overrides_before_environments = Chef::Mixin::DeepMerge.merge(override_attrs, expansion.override_attrs)
-      @override_attrs = Chef::Mixin::DeepMerge.merge(overrides_before_environments, environment_override_attrs)
+      # Same idea - different precedence
+      merged_env_and_roles_overrides = Chef::Mixin::DeepMerge.merge_for_role_attrs(expansion.override_attrs, environment_override_attrs)
+      @override_attrs = Chef::Mixin::DeepMerge.merge_for_file_attrs(override_attrs, merged_env_and_roles_overrides)
     end
 
     # Transform the node to a Hash
